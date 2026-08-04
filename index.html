@@ -161,13 +161,26 @@ main{margin-left:var(--sidebar);flex:1;min-width:0;}
   </div>
 </div>
 
+<!-- SELECCIÓN DE PUNTO DE CONTRATO -->
+<div class="center-screen" id="screen-puntos" style="display:none;">
+  <div class="center-card">
+    <a href="#" class="back-link" onclick="volverASelectorOrg();return false;">← Cambiar organización</a>
+    <div class="center-title" id="puntos-org-nombre">—</div>
+    <div class="center-sub">Selecciona tu punto de trabajo (contrato)</div>
+    <div class="org-list" id="puntos-list"><div class="empty">Cargando...</div></div>
+    <div style="margin-top:18px;text-align:center;">
+      <a href="#" class="back-link" onclick="continuarComoOficina();return false;">Soy Oficina / Administrador →</a>
+    </div>
+  </div>
+</div>
+
 <!-- LOGIN -->
 <div class="center-screen" id="screen-login" style="display:none;">
   <div class="center-card">
-    <a href="#" class="back-link" onclick="volverASelectorOrg();return false;">← Cambiar organización</a>
+    <a href="#" class="back-link" onclick="volverAPuntos();return false;">← Volver</a>
     <div class="center-title" id="login-org-nombre">—</div>
-    <div class="center-sub">Identifícate para continuar</div>
-    <div class="login-tabs">
+    <div class="center-sub" id="login-punto-sub">Identifícate para continuar</div>
+    <div class="login-tabs" id="login-tabs">
       <button class="login-tab active" id="tab-login-sup" onclick="cambiarTabLogin('sup')">Supervisor / Jefe de grupo</button>
       <button class="login-tab" id="tab-login-of" onclick="cambiarTabLogin('of')">Oficina</button>
     </div>
@@ -190,6 +203,8 @@ main{margin-left:var(--sidebar);flex:1;min-width:0;}
   <nav class="sidebar" id="sidebar">
     <div class="sidebar-head">
       <div class="sidebar-org" id="side-org">—</div>
+      <div class="sidebar-org" id="side-org-fija" style="display:none;">🏢 Oficina San Felipe</div>
+      <select id="side-org-switch" style="display:none;width:100%;margin-top:8px;font-size:12.5px;padding:6px 8px;" onchange="cambiarOrgActiva(this.value)"></select>
       <div class="sidebar-role" id="side-role">—</div>
     </div>
     <div class="sidebar-nav">
@@ -306,11 +321,16 @@ main{margin-left:var(--sidebar);flex:1;min-width:0;}
           </div></div>
         </div>
         <div id="config-content" style="display:none;">
+          <div id="config-org-banner" style="display:none;background:var(--pri-light);border:1px solid #BFDBFE;border-radius:10px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+            <span style="font-weight:700;font-size:13.5px;color:var(--pri-dark);">🏢 Estás editando la organización:</span>
+            <select id="config-org-select" onchange="cambiarOrgActiva(this.value)" style="min-width:220px;"></select>
+          </div>
           <div class="subtabs">
             <button class="subtab active" id="st-personal" onclick="showSubTab('personal')">👤 Personal</button>
             <button class="subtab" id="st-supervisores" onclick="showSubTab('supervisores')">🧑‍💼 Supervisores</button>
             <button class="subtab" id="st-tipos" onclick="showSubTab('tipos')">🏷️ Tipos de novedad</button>
-            <button class="subtab" id="st-areas" onclick="showSubTab('areas')">🏢 Áreas / Puntos</button>
+            <button class="subtab" id="st-areas" onclick="showSubTab('areas')">🏢 Áreas (Novedades)</button>
+            <button class="subtab" id="st-puntos" onclick="showSubTab('puntos')">📍 Puntos de contrato</button>
             <button class="subtab" id="st-orgs" onclick="showSubTab('orgs')">🏛️ Organizaciones</button>
             <button class="subtab" id="st-clave" onclick="showSubTab('clave')">🔑 Contraseña</button>
             <button class="subtab" id="st-membrete" onclick="showSubTab('membrete')">🖼️ Hoja membretada</button>
@@ -318,14 +338,27 @@ main{margin-left:var(--sidebar);flex:1;min-width:0;}
 
           <div id="sub-personal">
             <div class="card">
+              <div class="card-head">📥 Carga masiva desde Excel</div>
+              <div class="card-body">
+                <div style="font-size:12.5px;color:var(--muted);margin-bottom:12px;">Descarga la plantilla, complétala, y súbela para crear varias personas a la vez. Si el punto de contrato que escribes no existe todavía, se crea automáticamente.</div>
+                <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+                  <button class="btn-sm btn-edit" onclick="descargarPlantillaPersonal()">⬇ Descargar plantilla</button>
+                  <input type="file" id="personal-excel-file" accept=".xlsx,.xls" style="max-width:260px;">
+                  <button class="btn-sm" style="background:var(--pri);color:white;border:none;" id="btn-subir-personal-excel" onclick="subirExcelPersonal()">📤 Subir Excel</button>
+                </div>
+                <div id="personal-excel-resultado" style="margin-top:10px;font-size:13px;"></div>
+              </div>
+            </div>
+            <div class="card">
               <div class="card-head">➕ Agregar personal</div>
               <div class="card-body">
+                <div style="font-size:12.5px;color:var(--muted);margin-bottom:12px;">Se agrega a la organización que tienes seleccionada arriba en el menú (junto al logo). Para agregar personal de otra organización, cámbiala primero ahí.</div>
                 <div class="form-grid">
                   <div class="form-group"><label>Nombre completo</label><input type="text" id="p-nombre"></div>
                   <div class="form-group"><label>Cédula</label><input type="text" id="p-cedula"></div>
                   <div class="form-group"><label>Cargo</label><input type="text" id="p-cargo"></div>
                   <div class="form-group"><label>Teléfono</label><input type="text" id="p-telefono"></div>
-                  <div class="form-group"><label>Área / Punto asignado</label><input type="text" id="p-area" list="dl-areas" placeholder="Escribe o elige un área..."></div>
+                  <div class="form-group"><label>Punto de contrato asignado</label><select id="p-area"><option value="">Seleccionar...</option></select></div>
                   <div class="form-group"><label>Fecha de ingreso</label><input type="date" id="p-ingreso"></div>
                 </div>
                 <button class="btn-primary" style="width:auto;padding:10px 22px;" onclick="guardarPersona()">Guardar</button>
@@ -336,6 +369,18 @@ main{margin-left:var(--sidebar);flex:1;min-width:0;}
 
           <div id="sub-supervisores" style="display:none;">
             <div class="card">
+              <div class="card-head">📥 Carga masiva desde Excel</div>
+              <div class="card-body">
+                <div style="font-size:12.5px;color:var(--muted);margin-bottom:12px;">Descarga la plantilla, complétala, y súbela para crear varios supervisores/jefes de grupo a la vez. La cédula queda como su contraseña de acceso.</div>
+                <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+                  <button class="btn-sm btn-edit" onclick="descargarPlantillaSupervisores()">⬇ Descargar plantilla</button>
+                  <input type="file" id="sup-excel-file" accept=".xlsx,.xls" style="max-width:260px;">
+                  <button class="btn-sm" style="background:var(--pri);color:white;border:none;" id="btn-subir-sup-excel" onclick="subirExcelSupervisores()">📤 Subir Excel</button>
+                </div>
+                <div id="sup-excel-resultado" style="margin-top:10px;font-size:13px;"></div>
+              </div>
+            </div>
+            <div class="card">
               <div class="card-head">➕ Agregar supervisor / jefe de grupo</div>
               <div class="card-body">
                 <div class="form-grid">
@@ -343,6 +388,7 @@ main{margin-left:var(--sidebar);flex:1;min-width:0;}
                   <div class="form-group"><label>Apellido</label><input type="text" id="sv-apellido" placeholder="Primer apellido"></div>
                   <div class="form-group"><label>Cédula (será su contraseña)</label><input type="text" id="sv-cedula"></div>
                   <div class="form-group"><label>Rol</label><select id="sv-rol"><option value="Supervisor">Supervisor</option><option value="Jefe de grupo">Jefe de grupo</option></select></div>
+                  <div class="form-group"><label>Punto de trabajo (contrato) asignado</label><select id="sv-area"><option value="">Seleccionar...</option></select></div>
                 </div>
                 <button class="btn-primary" style="width:auto;padding:10px 22px;" onclick="guardarSupervisor()">Guardar</button>
               </div>
@@ -365,15 +411,30 @@ main{margin-left:var(--sidebar);flex:1;min-width:0;}
 
           <div id="sub-areas" style="display:none;">
             <div class="card">
-              <div class="card-head">➕ Agregar área / punto</div>
+              <div class="card-head">➕ Agregar área</div>
               <div class="card-body">
+                <div style="font-size:12.5px;color:var(--muted);margin-bottom:10px;">Estas son las áreas que aparecen como sugerencia al registrar una Novedad (campo "Área / Punto"). No están relacionadas con los puntos de contrato de supervisores y personal.</div>
                 <div style="display:flex;gap:8px;">
-                  <input type="text" id="area-nombre" placeholder="Ej: Hospital Guayaquil">
+                  <input type="text" id="area-nombre" placeholder="Ej: Piso 3">
                   <button class="btn-sm" style="background:var(--pri);color:white;border:none;white-space:nowrap;" onclick="guardarAreaConfig()">+ Agregar</button>
                 </div>
               </div>
             </div>
             <div class="card"><div class="card-head">Áreas registradas</div><div id="areas-list"><div class="empty">Cargando...</div></div></div>
+          </div>
+
+          <div id="sub-puntos" style="display:none;">
+            <div class="card">
+              <div class="card-head">➕ Agregar punto de contrato</div>
+              <div class="card-body">
+                <div style="font-size:12.5px;color:var(--muted);margin-bottom:10px;">Estos son los contratos/sitios de trabajo de esta organización (ej. "Metro de Quito", "Hospital Abel Gilbert Pontón"). Se usan para asignar Supervisores y Personal, y para el inicio de sesión.</div>
+                <div style="display:flex;gap:8px;">
+                  <input type="text" id="punto-nombre" placeholder="Ej: Metro de Quito">
+                  <button class="btn-sm" style="background:var(--pri);color:white;border:none;white-space:nowrap;" onclick="guardarPuntoConfig()">+ Agregar</button>
+                </div>
+              </div>
+            </div>
+            <div class="card"><div class="card-head">Puntos de contrato registrados</div><div id="puntos-admin-list"><div class="empty">Cargando...</div></div></div>
           </div>
 
           <div id="sub-orgs" style="display:none;">
@@ -491,6 +552,41 @@ main{margin-left:var(--sidebar);flex:1;min-width:0;}
   </div>
 </div>
 
+<!-- MODAL: EDITAR PERSONA -->
+<div class="modal-overlay" id="modal-editar-persona">
+  <div class="modal-box">
+    <div class="modal-title">Editar personal</div>
+    <div class="form-group"><label>Nombre completo</label><input type="text" id="ep-nombre"></div>
+    <div class="form-group"><label>Cédula</label><input type="text" id="ep-cedula"></div>
+    <div class="form-group"><label>Cargo</label><input type="text" id="ep-cargo"></div>
+    <div class="form-group"><label>Teléfono</label><input type="text" id="ep-telefono"></div>
+    <div class="form-group"><label>Punto de contrato asignado</label><select id="ep-area"><option value="">Seleccionar...</option></select></div>
+    <div class="form-group"><label>Fecha de ingreso</label><input type="date" id="ep-ingreso"></div>
+    <div class="err-msg" id="ep-err"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="cerrarModal('modal-editar-persona')">Cancelar</button>
+      <button class="btn-primary" style="width:auto;padding:10px 22px;" onclick="guardarEdicionPersona()">Guardar cambios</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: EDITAR SUPERVISOR -->
+<div class="modal-overlay" id="modal-editar-supervisor">
+  <div class="modal-box">
+    <div class="modal-title">Editar supervisor / jefe de grupo</div>
+    <div class="form-group"><label>Nombre</label><input type="text" id="es-nombre"></div>
+    <div class="form-group"><label>Apellido</label><input type="text" id="es-apellido"></div>
+    <div class="form-group"><label>Cédula (será su contraseña)</label><input type="text" id="es-cedula"></div>
+    <div class="form-group"><label>Rol</label><select id="es-rol"><option value="Supervisor">Supervisor</option><option value="Jefe de grupo">Jefe de grupo</option></select></div>
+    <div class="form-group"><label>Punto de trabajo (contrato) asignado</label><select id="es-area"><option value="">Seleccionar...</option></select></div>
+    <div class="err-msg" id="es-err"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="cerrarModal('modal-editar-supervisor')">Cancelar</button>
+      <button class="btn-primary" style="width:auto;padding:10px 22px;" onclick="guardarEdicionSupervisor()">Guardar cambios</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL: DETALLE PERSONA -->
 <div class="modal-overlay" id="modal-persona">
   <div class="modal-box wide">
@@ -557,7 +653,7 @@ let role = null; // 'supervisor' | 'oficina'
 let currentSupervisor = null; // {id, nombre, apellido, rol}
 let officeUnlocked = false;
 
-let personal = {}, supervisores = {}, areas = {}, tiposNovedad = {}, novedades = {}, multas = {}, galeria = {}, llamados = {};
+let personal = {}, supervisores = {}, areas = {}, puntos = {}, tiposNovedad = {}, novedades = {}, multas = {}, galeria = {}, llamados = {};
 let membreteUrl = null;
 let orgListeners = [];
 let currentTab = 'dashboard', currentSubTab = 'personal';
@@ -658,12 +754,31 @@ async function sembrarOrgsSiVacio() {
   if (snap.exists()) return; // ya hay organizaciones, no tocar nada
   const nombres = ['BLUEBODY', 'ASOALAN', 'ASOLIMPEC', 'ASOLIMAG', 'ASOPERPRO', 'ASOORPERFEC', 'ASOSERESVO'];
   const updates = {};
+  const principalKey = push(ref(db, 'orgs')).key;
+  updates[`orgs/${principalKey}`] = { nombre: 'Oficina San Felipe', principal: true, config: {} };
   nombres.forEach(nombre => {
     const key = push(ref(db, 'orgs')).key;
     updates[`orgs/${key}`] = { nombre, config: {} };
   });
   await update(ref(db), updates);
   showToast('✓ Organizaciones iniciales creadas.');
+}
+
+// Para bases de datos que ya tenían organizaciones creadas antes de que existiera "Oficina San Felipe"
+async function asegurarOrgPrincipal(listaOrgs) {
+  const existente = Object.entries(listaOrgs).find(([k, o]) => o.principal || o.nombre === 'Oficina San Felipe');
+  if (existente) {
+    const [k, o] = existente;
+    if (!o.principal) {
+      // Ya existía con ese nombre (ej. creada manualmente antes) pero sin la marca de "principal" — se la agregamos
+      await update(ref(db, `orgs/${k}`), { principal: true });
+      return true;
+    }
+    return false;
+  }
+  const key = push(ref(db, 'orgs')).key;
+  await set(ref(db, `orgs/${key}`), { nombre: 'Oficina San Felipe', principal: true, config: {} });
+  return true;
 }
 
 async function sembrarClaveGlobalSiVacio() {
@@ -680,6 +795,12 @@ async function arrancarApp() {
     await sembrarOrgsSiVacio();
     const snap2 = await get(ref(db, 'orgs'));
     orgs = snap2.val() || {};
+  } else {
+    const creada = await asegurarOrgPrincipal(orgs);
+    if (creada) {
+      const snap3 = await get(ref(db, 'orgs'));
+      orgs = snap3.val() || {};
+    }
   }
   ocultarLoading();
 
@@ -709,24 +830,91 @@ function renderOrgSelector() {
   const list = document.getElementById('org-list');
   const entries = Object.entries(orgs);
   if (!entries.length) { list.innerHTML = '<div class="empty">Aún no hay organizaciones registradas.</div>'; return; }
-  list.innerHTML = entries.sort((a, b) => a[1].nombre.localeCompare(b[1].nombre, 'es')).map(([id, o]) => `
-    <button class="org-btn" onclick="elegirOrganizacion('${id}')"><span class="org-dot"></span>${o.nombre}</button>
-  `).join('');
+  const principales = entries.filter(([id, o]) => o.principal);
+  const resto = entries.filter(([id, o]) => !o.principal).sort((a, b) => a[1].nombre.localeCompare(b[1].nombre, 'es'));
+  const ordenadas = [...principales, ...resto];
+  list.innerHTML = ordenadas.map(([id, o]) => o.principal
+    ? `<button class="org-btn" style="border-color:var(--pri);background:var(--pri-light);" onclick="elegirOrganizacion('${id}')"><span class="org-dot" style="background:var(--pri);"></span>🏢 ${o.nombre} <span style="font-weight:400;color:var(--muted);font-size:11.5px;">(central)</span></button>`
+    : `<button class="org-btn" onclick="elegirOrganizacion('${id}')"><span class="org-dot"></span>${o.nombre}</button>`
+  ).join('');
 }
 
-window.elegirOrganizacion = function (orgId) {
+let orgAreasTemp = {};
+let selectedPuntoId = null, selectedPuntoNombre = '';
+
+window.elegirOrganizacion = async function (orgId) {
   currentOrgId = orgId;
   currentOrgNombre = orgs[orgId]?.nombre || '—';
   document.getElementById('screen-org').style.display = 'none';
+  if (orgs[orgId]?.principal) {
+    mostrarLoginDirecto();
+  } else {
+    await mostrarPantallaPuntos();
+  }
+};
+
+async function mostrarPantallaPuntos() {
+  document.getElementById('screen-login').style.display = 'none';
+  document.getElementById('screen-puntos').style.display = 'flex';
+  document.getElementById('puntos-org-nombre').textContent = currentOrgNombre;
+  const list = document.getElementById('puntos-list');
+  list.innerHTML = '<div class="empty">Cargando...</div>';
+  const snap = await get(ref(db, `orgs/${currentOrgId}/puntos`));
+  orgAreasTemp = snap.val() || {};
+  const entries = Object.entries(orgAreasTemp);
+  if (!entries.length) {
+    list.innerHTML = '<div class="empty">Esta organización todavía no tiene puntos de contrato registrados. Se crean desde Oficina San Felipe → Configuración → Puntos de contrato, o entra directo como Oficina.</div>';
+    return;
+  }
+  list.innerHTML = entries.sort((a, b) => a[1].nombre.localeCompare(b[1].nombre, 'es')).map(([id, a]) => `
+    <button class="org-btn" onclick="elegirPunto('${id}')"><span class="org-dot"></span>${a.nombre}</button>
+  `).join('');
+}
+
+window.elegirPunto = function (puntoId) {
+  selectedPuntoId = puntoId;
+  selectedPuntoNombre = orgAreasTemp[puntoId]?.nombre || '';
+  document.getElementById('screen-puntos').style.display = 'none';
   document.getElementById('screen-login').style.display = 'flex';
+  document.getElementById('login-tabs').style.display = 'flex';
   document.getElementById('login-org-nombre').textContent = currentOrgNombre;
+  document.getElementById('login-punto-sub').textContent = `Punto: ${selectedPuntoNombre} — identifícate para continuar`;
   document.getElementById('login-err').textContent = '';
   cambiarTabLogin('sup');
 };
 
-window.volverASelectorOrg = function () {
-  currentOrgId = null;
+// Login directo de Oficina, sin pasar por la pantalla de puntos de contrato
+// (se usa tanto para la organización principal "Oficina San Felipe" como para el enlace "Soy Oficina" de las demás)
+function mostrarLoginDirecto() {
+  selectedPuntoId = null; selectedPuntoNombre = '';
+  document.getElementById('screen-puntos').style.display = 'none';
+  document.getElementById('screen-login').style.display = 'flex';
+  document.getElementById('login-org-nombre').textContent = currentOrgNombre;
+  const esPrincipal = !!orgs[currentOrgId]?.principal;
+  document.getElementById('login-punto-sub').textContent = esPrincipal ? 'Organización principal — identifícate como Oficina' : 'Identifícate para continuar';
+  document.getElementById('login-tabs').style.display = esPrincipal ? 'none' : 'flex';
+  document.getElementById('login-err').textContent = '';
+  cambiarTabLogin('of');
+}
+
+window.continuarComoOficina = function () {
+  mostrarLoginDirecto();
+};
+
+window.volverAPuntos = function () {
   document.getElementById('screen-login').style.display = 'none';
+  document.getElementById('login-tabs').style.display = 'flex';
+  if (orgs[currentOrgId]?.principal) {
+    volverASelectorOrg();
+  } else {
+    mostrarPantallaPuntos();
+  }
+};
+
+window.volverASelectorOrg = function () {
+  currentOrgId = null; selectedPuntoId = null; selectedPuntoNombre = '';
+  document.getElementById('screen-login').style.display = 'none';
+  document.getElementById('screen-puntos').style.display = 'none';
   document.getElementById('screen-org').style.display = 'flex';
 };
 
@@ -764,12 +952,13 @@ window.intentarLoginSupervisor = async function () {
   const cedula = document.getElementById('login-cedula').value.trim();
   const err = document.getElementById('login-err');
   if (!nombre || !cedula) { err.textContent = 'Completa nombre y cédula.'; return; }
+  if (!selectedPuntoId) { err.textContent = 'Selecciona primero tu punto de trabajo (vuelve atrás).'; return; }
   const snap = await get(ref(db, `orgs/${currentOrgId}/supervisores`));
   const sups = snap.val() || {};
   const match = Object.entries(sups).find(([k, s]) =>
-    `${s.nombre} ${s.apellido}`.trim().toLowerCase() === nombre && s.cedula === cedula && s.estado !== 'Inactivo'
+    `${s.nombre} ${s.apellido}`.trim().toLowerCase() === nombre && s.cedula === cedula && s.estado !== 'Inactivo' && s.areaId === selectedPuntoId
   );
-  if (!match) { err.textContent = 'No se encontró un supervisor activo con esos datos en esta organización.'; return; }
+  if (!match) { err.textContent = 'No se encontró un supervisor activo con esos datos asignado a este punto de contrato.'; return; }
   currentSupervisor = { id: match[0], ...match[1] };
   role = 'supervisor';
   entrarAlApp();
@@ -785,18 +974,51 @@ window.intentarLoginOficina = async function () {
   entrarAlApp();
 };
 
+function poblarSelectoresOrg() {
+  const opciones = Object.entries(orgs).sort((a, b) => a[1].nombre.localeCompare(b[1].nombre, 'es')).map(([id, o]) => `<option value="${id}" ${id === currentOrgId ? 'selected' : ''}>${o.nombre}</option>`).join('');
+  const switcher = document.getElementById('side-org-switch');
+  const configSel = document.getElementById('config-org-select');
+  if (switcher) switcher.innerHTML = opciones;
+  if (configSel) configSel.innerHTML = opciones;
+}
+
 function entrarAlApp() {
   document.getElementById('screen-login').style.display = 'none';
   document.getElementById('app').style.display = 'block';
-  document.getElementById('side-org').textContent = currentOrgNombre;
-  document.getElementById('side-role').textContent = role === 'oficina' ? 'Oficina / Administrador' : `${currentSupervisor.rol || 'Supervisor'} · ${currentSupervisor.nombre} ${currentSupervisor.apellido}`;
+  document.getElementById('side-role').textContent = role === 'oficina' ? 'Oficina / Administrador' : `${currentSupervisor.rol || 'Supervisor'} · ${currentSupervisor.nombre} ${currentSupervisor.apellido}${currentSupervisor.areaNombre ? ' · ' + currentSupervisor.areaNombre : ''}`;
   document.getElementById('nav-group-admin').style.display = role === 'oficina' ? 'block' : 'none';
   document.getElementById('nav-config').style.display = role === 'oficina' ? 'flex' : 'none';
-  if (role === 'oficina') { document.getElementById('config-lock').style.display = 'none'; document.getElementById('config-content').style.display = 'block'; }
+  const switcher = document.getElementById('side-org-switch');
+  if (role === 'oficina') {
+    document.getElementById('side-org').style.display = 'none';
+    document.getElementById('side-org-fija').style.display = 'block';
+    switcher.style.display = 'block';
+    document.getElementById('config-org-banner').style.display = 'flex';
+    poblarSelectoresOrg();
+    document.getElementById('config-lock').style.display = 'none'; document.getElementById('config-content').style.display = 'block';
+  } else {
+    document.getElementById('side-org').style.display = 'block';
+    document.getElementById('side-org').textContent = currentOrgNombre;
+    document.getElementById('side-org-fija').style.display = 'none';
+    switcher.style.display = 'none';
+  }
   iniciarListenersOrg();
   showTab('dashboard');
   guardarSesionLocal();
 }
+
+window.cambiarOrgActiva = function (newOrgId) {
+  if (!newOrgId || newOrgId === currentOrgId) return;
+  orgListeners.forEach(unsub => { try { unsub(); } catch (e) {} });
+  orgListeners = [];
+  currentOrgId = newOrgId;
+  currentOrgNombre = orgs[newOrgId]?.nombre || '—';
+  poblarSelectoresOrg();
+  iniciarListenersOrg();
+  showTab(currentTab);
+  guardarSesionLocal();
+  showToast(`Ahora administrando: ${currentOrgNombre}`);
+};
 
 window.cerrarSesion = function () {
   orgListeners.forEach(unsub => { try { unsub(); } catch (e) {} });
@@ -813,8 +1035,8 @@ window.cerrarSesion = function () {
 // ── LISTENERS DE LA ORGANIZACIÓN ACTIVA ─────────────────────────────────────
 function iniciarListenersOrg() {
   const base = `orgs/${currentOrgId}`;
-  const paths = ['personal', 'supervisores', 'areas', 'tiposNovedad', 'novedades', 'multas', 'galeria', 'llamados'];
-  const setters = { personal: v => personal = v, supervisores: v => supervisores = v, areas: v => areas = v, tiposNovedad: v => tiposNovedad = v, novedades: v => novedades = v, multas: v => multas = v, galeria: v => galeria = v, llamados: v => llamados = v };
+  const paths = ['personal', 'supervisores', 'areas', 'puntos', 'tiposNovedad', 'novedades', 'multas', 'galeria', 'llamados'];
+  const setters = { personal: v => personal = v, supervisores: v => supervisores = v, areas: v => areas = v, puntos: v => puntos = v, tiposNovedad: v => tiposNovedad = v, novedades: v => novedades = v, multas: v => multas = v, galeria: v => galeria = v, llamados: v => llamados = v };
   paths.forEach(p => {
     const r = ref(db, `${base}/${p}`);
     const cb = onValue(r, s => { setters[p](s.val() || {}); refreshAll(); });
@@ -837,6 +1059,7 @@ function refreshAll() {
     if (currentSubTab === 'supervisores') renderSupervisoresList();
     if (currentSubTab === 'tipos') renderTiposList();
     if (currentSubTab === 'areas') renderAreasList();
+    if (currentSubTab === 'puntos') renderPuntosAdminList();
     if (currentSubTab === 'orgs') renderOrgsAdminList();
     if (currentSubTab === 'membrete') renderMembretePreview();
   }
@@ -862,6 +1085,8 @@ function populateSelects() {
     filtroTipo.innerHTML = '<option value="">Todos los tipos</option>' + nombresUnicos.map(n => `<option value="${n}">${n}</option>`).join('');
     if ([...filtroTipo.options].some(o => o.value === cur)) filtroTipo.value = cur;
   }
+  fill('sv-area', puntos, 'Seleccionar...');
+  fill('p-area', puntos, 'Seleccionar...');
   const muSel = document.getElementById('mu-persona');
   if (muSel) {
     const cur = muSel.value;
@@ -896,7 +1121,7 @@ window.showTab = function (id) {
 };
 
 window.showSubTab = function (id) {
-  ['personal', 'supervisores', 'tipos', 'areas', 'orgs', 'clave', 'membrete'].forEach(t => {
+  ['personal', 'supervisores', 'tipos', 'areas', 'puntos', 'orgs', 'clave', 'membrete'].forEach(t => {
     document.getElementById('sub-' + t).style.display = t === id ? 'block' : 'none';
     document.getElementById('st-' + t).classList.toggle('active', t === id);
   });
@@ -1368,17 +1593,146 @@ window.descargarZipGaleria = async function () {
   showToast('✓ ZIP descargado.');
 };
 
+// ── CARGA MASIVA POR EXCEL ───────────────────────────────────────────────────
+window.descargarPlantillaPersonal = function () {
+  const rows = [
+    ['Nombre completo', 'Cédula', 'Cargo', 'Teléfono', 'Punto de contrato', 'Fecha de ingreso (AAAA-MM-DD)'],
+    ['Erick Cunalata', '0912345678', 'Guardia', '0991234567', 'Metro de Quito', '2025-01-15']
+  ];
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = [{ wch: 26 }, { wch: 14 }, { wch: 18 }, { wch: 14 }, { wch: 26 }, { wch: 22 }];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Personal');
+  XLSX.writeFile(wb, 'Plantilla_Personal.xlsx');
+};
+
+window.descargarPlantillaSupervisores = function () {
+  const rows = [
+    ['Nombre', 'Apellido', 'Cédula', 'Rol (Supervisor o Jefe de grupo)', 'Punto de contrato'],
+    ['Andres', 'Mora', '0912345678', 'Supervisor', 'Metro de Quito']
+  ];
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = [{ wch: 16 }, { wch: 16 }, { wch: 14 }, { wch: 28 }, { wch: 26 }];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Supervisores');
+  XLSX.writeFile(wb, 'Plantilla_Supervisores.xlsx');
+};
+
+function leerPrimeraHojaExcel(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const wb = XLSX.read(e.target.result, { type: 'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        resolve(XLSX.utils.sheet_to_json(ws, { defval: '' }));
+      } catch (err) { reject(err); }
+    };
+    reader.onerror = reject;
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+// Busca un punto de contrato por nombre (sin importar mayúsculas); si no existe, lo crea
+async function obtenerOCrearPuntoId(nombrePunto, updatesAcumulados, nuevasCreadas) {
+  const nombre = String(nombrePunto || '').trim();
+  if (!nombre) return null;
+  const existente = Object.entries(puntos).find(([k, a]) => (a.nombre || '').trim().toLowerCase() === nombre.toLowerCase());
+  if (existente) return existente[0];
+  // Revisar también entre los que se van a crear en esta misma carga
+  if (nuevasCreadas[nombre.toLowerCase()]) return nuevasCreadas[nombre.toLowerCase()];
+  const nuevaKey = push(ref(db, `orgs/${currentOrgId}/puntos`)).key;
+  updatesAcumulados[`orgs/${currentOrgId}/puntos/${nuevaKey}`] = { nombre };
+  nuevasCreadas[nombre.toLowerCase()] = nuevaKey;
+  puntos[nuevaKey] = { nombre }; // reflejar de inmediato en memoria para las siguientes filas
+  return nuevaKey;
+}
+
+window.subirExcelPersonal = async function () {
+  const input = document.getElementById('personal-excel-file');
+  const resultado = document.getElementById('personal-excel-resultado');
+  if (!input.files.length) { showToast('Selecciona primero un archivo Excel.', 'err'); return; }
+  const btn = document.getElementById('btn-subir-personal-excel'); btn.disabled = true; btn.innerHTML = spinHtml + 'Procesando...';
+  resultado.innerHTML = '';
+  try {
+    const filas = await leerPrimeraHojaExcel(input.files[0]);
+    const updates = {};
+    const nuevasAreas = {};
+    let creados = 0, errores = [];
+    for (let i = 0; i < filas.length; i++) {
+      const f = filas[i];
+      const nombre = String(f['Nombre completo'] || '').trim();
+      const cedula = String(f['Cédula'] || '').trim();
+      const cargo = String(f['Cargo'] || '').trim();
+      const telefono = String(f['Teléfono'] || '').trim();
+      const puntoTxt = String(f['Punto de contrato'] || '').trim();
+      let ingreso = f['Fecha de ingreso (AAAA-MM-DD)'] || '';
+      if (ingreso instanceof Date) ingreso = ingreso.toISOString().slice(0, 10);
+      else ingreso = String(ingreso).trim();
+      if (!nombre || !cedula) { errores.push(`Fila ${i + 2}: falta nombre o cédula.`); continue; }
+      const areaId = await obtenerOCrearPuntoId(puntoTxt, updates, nuevasAreas);
+      if (!areaId) { errores.push(`Fila ${i + 2} (${nombre}): falta el punto de contrato.`); continue; }
+      const key = push(ref(db, `orgs/${currentOrgId}/personal`)).key;
+      updates[`orgs/${currentOrgId}/personal/${key}`] = { nombre, cedula, cargo, telefono, areaId, areaNombre: puntos[areaId]?.nombre || puntoTxt, ingreso, estado: 'Activo' };
+      creados++;
+    }
+    if (creados > 0) await update(ref(db), updates);
+    const puntosNuevos = Object.keys(nuevasAreas).length;
+    resultado.innerHTML = `<div style="color:var(--green);font-weight:700;">✓ ${creados} persona(s) creada(s)${puntosNuevos ? ` · ${puntosNuevos} punto(s) de contrato nuevo(s) creado(s) automáticamente` : ''}.</div>` +
+      (errores.length ? `<div style="color:var(--red);margin-top:6px;">${errores.length} fila(s) con error:<br>${errores.join('<br>')}</div>` : '');
+    input.value = '';
+    showToast('✓ Carga masiva completada.');
+  } catch (e) { console.error(e); resultado.innerHTML = '<div style="color:var(--red);">Error al leer el archivo. Verifica que sea el formato de la plantilla.</div>'; }
+  btn.disabled = false; btn.innerHTML = '📤 Subir Excel';
+};
+
+window.subirExcelSupervisores = async function () {
+  const input = document.getElementById('sup-excel-file');
+  const resultado = document.getElementById('sup-excel-resultado');
+  if (!input.files.length) { showToast('Selecciona primero un archivo Excel.', 'err'); return; }
+  const btn = document.getElementById('btn-subir-sup-excel'); btn.disabled = true; btn.innerHTML = spinHtml + 'Procesando...';
+  resultado.innerHTML = '';
+  try {
+    const filas = await leerPrimeraHojaExcel(input.files[0]);
+    const updates = {};
+    const nuevasAreas = {};
+    let creados = 0, errores = [];
+    for (let i = 0; i < filas.length; i++) {
+      const f = filas[i];
+      const nombre = String(f['Nombre'] || '').trim();
+      const apellido = String(f['Apellido'] || '').trim();
+      const cedula = String(f['Cédula'] || '').trim();
+      let rol = String(f['Rol (Supervisor o Jefe de grupo)'] || '').trim();
+      if (rol.toLowerCase().includes('jefe')) rol = 'Jefe de grupo'; else rol = 'Supervisor';
+      const puntoTxt = String(f['Punto de contrato'] || '').trim();
+      if (!nombre || !apellido || !cedula) { errores.push(`Fila ${i + 2}: falta nombre, apellido o cédula.`); continue; }
+      const areaId = await obtenerOCrearPuntoId(puntoTxt, updates, nuevasAreas);
+      if (!areaId) { errores.push(`Fila ${i + 2} (${nombre} ${apellido}): falta el punto de contrato.`); continue; }
+      const key = push(ref(db, `orgs/${currentOrgId}/supervisores`)).key;
+      updates[`orgs/${currentOrgId}/supervisores/${key}`] = { nombre, apellido, cedula, rol, areaId, areaNombre: puntos[areaId]?.nombre || puntoTxt, estado: 'Activo' };
+      creados++;
+    }
+    if (creados > 0) await update(ref(db), updates);
+    const puntosNuevos = Object.keys(nuevasAreas).length;
+    resultado.innerHTML = `<div style="color:var(--green);font-weight:700;">✓ ${creados} supervisor(es) creado(s)${puntosNuevos ? ` · ${puntosNuevos} punto(s) de contrato nuevo(s) creado(s) automáticamente` : ''}.</div>` +
+      (errores.length ? `<div style="color:var(--red);margin-top:6px;">${errores.length} fila(s) con error:<br>${errores.join('<br>')}</div>` : '');
+    input.value = '';
+    showToast('✓ Carga masiva completada.');
+  } catch (e) { console.error(e); resultado.innerHTML = '<div style="color:var(--red);">Error al leer el archivo. Verifica que sea el formato de la plantilla.</div>'; }
+  btn.disabled = false; btn.innerHTML = '📤 Subir Excel';
+};
+
 // ── CONFIGURACIÓN: PERSONAL ──────────────────────────────────────────────────
 window.guardarPersona = async function () {
   const nombre = document.getElementById('p-nombre').value.trim();
   const cedula = document.getElementById('p-cedula').value.trim();
   const cargo = document.getElementById('p-cargo').value.trim();
   const telefono = document.getElementById('p-telefono').value.trim();
-  const areaNombre = document.getElementById('p-area').value.trim();
+  const areaId = document.getElementById('p-area').value;
   const ingreso = document.getElementById('p-ingreso').value;
   if (!nombre || !cedula) return showToast('Ingresa al menos nombre y cédula.', 'err');
-  if (areaNombre) await agregarSugerenciaSiNueva('areas', areas, areaNombre);
-  await push(ref(db, `orgs/${currentOrgId}/personal`), { nombre, cedula, cargo, telefono, areaNombre, ingreso, estado: 'Activo' });
+  if (!areaId) return showToast('Selecciona el punto de contrato al que se asigna.', 'err');
+  await push(ref(db, `orgs/${currentOrgId}/personal`), { nombre, cedula, cargo, telefono, areaId, areaNombre: puntos[areaId]?.nombre || '', ingreso, estado: 'Activo' });
   showToast('✓ Personal agregado.');
   ['p-nombre', 'p-cedula', 'p-cargo', 'p-telefono', 'p-ingreso'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('p-area').value = '';
@@ -1392,8 +1746,9 @@ function renderPersonalList() {
     <div class="item-row">
       <div class="item-main" style="cursor:pointer;" onclick="verDetallePersona('${k}')">
         <div class="item-title">${p.nombre} ${p.estado === 'Inactivo' ? '<span class="badge badge-rechazada">Inactivo</span>' : ''}</div>
-        <div class="item-sub">${p.cargo || ''} · Cédula: ${p.cedula} · ${p.areaNombre || 'Sin área'} ${p.telefono ? '· ' + p.telefono : ''}</div>
+        <div class="item-sub">${p.cargo || ''} · Cédula: ${p.cedula} · <b>${p.areaNombre || 'Sin asignar'}</b> ${p.telefono ? '· ' + p.telefono : ''}</div>
       </div>
+      <button class="btn-sm btn-edit" onclick="abrirModalEditarPersona('${k}')">Editar</button>
       <button class="btn-sm ${p.estado === 'Inactivo' ? 'btn-ok' : 'btn-del'}" onclick="toggleEstadoPersona('${k}')">${p.estado === 'Inactivo' ? 'Reactivar' : 'Marcar inactivo'}</button>
     </div>
   `).join('');
@@ -1403,6 +1758,36 @@ window.toggleEstadoPersona = async function (k) {
   const nuevo = personal[k].estado === 'Inactivo' ? 'Activo' : 'Inactivo';
   await update(ref(db, `orgs/${currentOrgId}/personal/${k}`), { estado: nuevo });
   showToast('✓ Estado actualizado.');
+};
+
+let editandoPersonaId = null;
+window.abrirModalEditarPersona = function (k) {
+  editandoPersonaId = k;
+  const p = personal[k];
+  document.getElementById('ep-nombre').value = p.nombre || '';
+  document.getElementById('ep-cedula').value = p.cedula || '';
+  document.getElementById('ep-cargo').value = p.cargo || '';
+  document.getElementById('ep-telefono').value = p.telefono || '';
+  document.getElementById('ep-ingreso').value = p.ingreso || '';
+  document.getElementById('ep-err').textContent = '';
+  const sel = document.getElementById('ep-area');
+  sel.innerHTML = '<option value="">Seleccionar...</option>' + Object.entries(puntos).map(([pk, pt]) => `<option value="${pk}" ${pk === p.areaId ? 'selected' : ''}>${pt.nombre}</option>`).join('');
+  abrirModal('modal-editar-persona');
+};
+
+window.guardarEdicionPersona = async function () {
+  const nombre = document.getElementById('ep-nombre').value.trim();
+  const cedula = document.getElementById('ep-cedula').value.trim();
+  const cargo = document.getElementById('ep-cargo').value.trim();
+  const telefono = document.getElementById('ep-telefono').value.trim();
+  const areaId = document.getElementById('ep-area').value;
+  const ingreso = document.getElementById('ep-ingreso').value;
+  const err = document.getElementById('ep-err');
+  if (!nombre || !cedula) { err.textContent = 'Completa al menos nombre y cédula.'; return; }
+  if (!areaId) { err.textContent = 'Selecciona el punto de contrato al que se asigna.'; return; }
+  await update(ref(db, `orgs/${currentOrgId}/personal/${editandoPersonaId}`), { nombre, cedula, cargo, telefono, areaId, areaNombre: puntos[areaId]?.nombre || '', ingreso });
+  showToast('✓ Personal actualizado.');
+  cerrarModal('modal-editar-persona');
 };
 
 window.verDetallePersona = function (k) {
@@ -1422,10 +1807,13 @@ window.guardarSupervisor = async function () {
   const apellido = document.getElementById('sv-apellido').value.trim();
   const cedula = document.getElementById('sv-cedula').value.trim();
   const rol = document.getElementById('sv-rol').value;
+  const areaId = document.getElementById('sv-area').value;
   if (!nombre || !apellido || !cedula) return showToast('Completa nombre, apellido y cédula.', 'err');
-  await push(ref(db, `orgs/${currentOrgId}/supervisores`), { nombre, apellido, cedula, rol, estado: 'Activo' });
+  if (!areaId) return showToast('Selecciona el punto de trabajo (contrato) al que se asigna.', 'err');
+  await push(ref(db, `orgs/${currentOrgId}/supervisores`), { nombre, apellido, cedula, rol, areaId, areaNombre: puntos[areaId]?.nombre || '', estado: 'Activo' });
   showToast('✓ Supervisor agregado.');
   ['sv-nombre', 'sv-apellido', 'sv-cedula'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('sv-area').value = '';
 };
 
 function renderSupervisoresList() {
@@ -1434,12 +1822,42 @@ function renderSupervisoresList() {
   if (!entries.length) { box.innerHTML = '<div class="empty">Sin supervisores registrados.</div>'; return; }
   box.innerHTML = entries.map(([k, s]) => `
     <div class="item-row">
-      <div class="item-main"><div class="item-title">${s.nombre} ${s.apellido} ${s.estado === 'Inactivo' ? '<span class="badge badge-rechazada">Inactivo</span>' : ''}</div><div class="item-sub">${s.rol || 'Supervisor'} · Cédula: ${s.cedula}</div></div>
+      <div class="item-main"><div class="item-title">${s.nombre} ${s.apellido} ${s.estado === 'Inactivo' ? '<span class="badge badge-rechazada">Inactivo</span>' : ''}</div><div class="item-sub">${s.rol || 'Supervisor'} · Cédula: ${s.cedula} · Punto: <b>${s.areaNombre || 'Sin asignar'}</b></div></div>
+      <button class="btn-sm btn-edit" onclick="abrirModalEditarSupervisor('${k}')">Editar</button>
       <button class="btn-sm ${s.estado === 'Inactivo' ? 'btn-ok' : 'btn-del'}" onclick="toggleEstadoSupervisor('${k}')">${s.estado === 'Inactivo' ? 'Reactivar' : 'Desactivar'}</button>
       <button class="btn-sm btn-del" onclick="eliminarSupervisor('${k}')">Eliminar</button>
     </div>
   `).join('');
 }
+
+let editandoSupervisorId = null;
+window.abrirModalEditarSupervisor = function (k) {
+  editandoSupervisorId = k;
+  const s = supervisores[k];
+  document.getElementById('es-nombre').value = s.nombre || '';
+  document.getElementById('es-apellido').value = s.apellido || '';
+  document.getElementById('es-cedula').value = s.cedula || '';
+  document.getElementById('es-rol').value = s.rol || 'Supervisor';
+  document.getElementById('es-err').textContent = '';
+  const sel = document.getElementById('es-area');
+  sel.innerHTML = '<option value="">Seleccionar...</option>' + Object.entries(puntos).map(([pk, pt]) => `<option value="${pk}" ${pk === s.areaId ? 'selected' : ''}>${pt.nombre}</option>`).join('');
+  abrirModal('modal-editar-supervisor');
+};
+
+window.guardarEdicionSupervisor = async function () {
+  const nombre = document.getElementById('es-nombre').value.trim();
+  const apellido = document.getElementById('es-apellido').value.trim();
+  const cedula = document.getElementById('es-cedula').value.trim();
+  const rol = document.getElementById('es-rol').value;
+  const areaId = document.getElementById('es-area').value;
+  const err = document.getElementById('es-err');
+  if (!nombre || !apellido || !cedula) { err.textContent = 'Completa nombre, apellido y cédula.'; return; }
+  if (!areaId) { err.textContent = 'Selecciona el punto de trabajo (contrato) al que se asigna.'; return; }
+  await update(ref(db, `orgs/${currentOrgId}/supervisores/${editandoSupervisorId}`), { nombre, apellido, cedula, rol, areaId, areaNombre: puntos[areaId]?.nombre || '' });
+  showToast('✓ Supervisor actualizado.');
+  cerrarModal('modal-editar-supervisor');
+};
+
 window.toggleEstadoSupervisor = async function (k) {
   const nuevo = supervisores[k].estado === 'Inactivo' ? 'Activo' : 'Inactivo';
   await update(ref(db, `orgs/${currentOrgId}/supervisores/${k}`), { estado: nuevo });
@@ -1476,9 +1894,49 @@ window.guardarAreaConfig = async function () {
 function renderAreasList() {
   const box = document.getElementById('areas-list'); if (!box) return;
   const entries = Object.entries(areas);
-  box.innerHTML = entries.length ? entries.map(([k, a]) => `<div class="item-row"><div class="item-main">${a.nombre}</div><button class="btn-sm btn-del" onclick="delAreaConfig('${k}')">Eliminar</button></div>`).join('') : '<div class="empty">Sin áreas registradas.</div>';
+  box.innerHTML = entries.length ? entries.map(([k, a]) => `<div class="item-row"><div class="item-main">${a.nombre}</div><button class="btn-sm btn-edit" onclick="renombrarAreaConfig('${k}')">Renombrar</button><button class="btn-sm btn-del" onclick="delAreaConfig('${k}')">Eliminar</button></div>`).join('') : '<div class="empty">Sin áreas registradas.</div>';
 }
-window.delAreaConfig = async function (k) { if (!confirm('¿Eliminar esta área?')) return; await remove(ref(db, `orgs/${currentOrgId}/areas/${k}`)); showToast('Área eliminada.'); };
+window.delAreaConfig = async function (k) { if (!confirm('¿Eliminar esta área? Si hay personal o supervisores asignados a ella, quedarán con un punto que ya no existe — mejor renómbrala en vez de eliminarla si sigue en uso.')) return; await remove(ref(db, `orgs/${currentOrgId}/areas/${k}`)); showToast('Área eliminada.'); };
+window.renombrarAreaConfig = async function (k) {
+  const actual = areas[k]?.nombre || '';
+  const nuevo = prompt('Nuevo nombre para esta área:', actual);
+  if (nuevo === null || !nuevo.trim()) return;
+  await update(ref(db, `orgs/${currentOrgId}/areas/${k}`), { nombre: nuevo.trim() });
+  showToast('✓ Área renombrada.');
+};
+
+// ── CONFIGURACIÓN: PUNTOS DE CONTRATO (Oficina San Felipe) ──────────────────────
+window.guardarPuntoConfig = async function () {
+  const nombre = document.getElementById('punto-nombre').value.trim();
+  if (!nombre) return showToast('Ingresa el nombre del punto de contrato.', 'err');
+  await push(ref(db, `orgs/${currentOrgId}/puntos`), { nombre });
+  showToast('✓ Punto de contrato agregado.'); document.getElementById('punto-nombre').value = '';
+};
+
+function renderPuntosAdminList() {
+  const box = document.getElementById('puntos-admin-list'); if (!box) return;
+  const entries = Object.entries(puntos);
+  box.innerHTML = entries.length ? entries.map(([k, p]) => `<div class="item-row"><div class="item-main">${p.nombre}</div><button class="btn-sm btn-edit" onclick="renombrarPuntoConfig('${k}')">Renombrar</button><button class="btn-sm btn-del" onclick="delPuntoConfig('${k}')">Eliminar</button></div>`).join('') : '<div class="empty">Sin puntos de contrato registrados todavía.</div>';
+}
+
+window.delPuntoConfig = async function (k) {
+  if (!confirm('¿Eliminar este punto de contrato? Si hay supervisores o personal asignados a él, quedarán con un punto que ya no existe — mejor renómbralo en vez de eliminarlo si sigue en uso.')) return;
+  await remove(ref(db, `orgs/${currentOrgId}/puntos/${k}`));
+  showToast('Punto de contrato eliminado.');
+};
+
+window.renombrarPuntoConfig = async function (k) {
+  const actual = puntos[k]?.nombre || '';
+  const nuevo = prompt('Nuevo nombre para este punto de contrato:', actual);
+  if (nuevo === null || !nuevo.trim()) return;
+  const nombreNuevo = nuevo.trim();
+  const updates = {};
+  updates[`orgs/${currentOrgId}/puntos/${k}/nombre`] = nombreNuevo;
+  Object.entries(supervisores).forEach(([sk, s]) => { if (s.areaId === k) updates[`orgs/${currentOrgId}/supervisores/${sk}/areaNombre`] = nombreNuevo; });
+  Object.entries(personal).forEach(([pk, p]) => { if (p.areaId === k) updates[`orgs/${currentOrgId}/personal/${pk}/areaNombre`] = nombreNuevo; });
+  await update(ref(db), updates);
+  showToast('✓ Punto de contrato renombrado.');
+};
 
 // ── CONFIGURACIÓN: ORGANIZACIONES ────────────────────────────────────────────
 window.crearOrganizacion = async function () {
@@ -1494,9 +1952,9 @@ function renderOrgsAdminList() {
   const entries = Object.entries(orgs);
   box.innerHTML = entries.map(([k, o]) => `
     <div class="item-row">
-      <div class="item-main">${o.nombre} ${k === currentOrgId ? '<span class="badge badge-aprobada">Esta organización</span>' : ''}</div>
+      <div class="item-main">${o.nombre} ${o.principal ? '<span class="badge badge-pendiente">Principal</span>' : ''} ${k === currentOrgId ? '<span class="badge badge-aprobada">Esta organización</span>' : ''}</div>
       <button class="btn-sm btn-edit" onclick="renombrarOrg('${k}')">Renombrar</button>
-      ${k !== currentOrgId ? `<button class="btn-sm btn-del" onclick="eliminarOrg('${k}')">Eliminar</button>` : ''}
+      ${(k !== currentOrgId && !o.principal) ? `<button class="btn-sm btn-del" onclick="eliminarOrg('${k}')">Eliminar</button>` : ''}
     </div>
   `).join('');
 }
@@ -1507,6 +1965,7 @@ window.renombrarOrg = async function (k) {
   showToast('✓ Organización renombrada.');
 };
 window.eliminarOrg = async function (k) {
+  if (orgs[k]?.principal) { showToast('La organización principal no se puede eliminar.', 'err'); return; }
   if (!confirm(`¿Eliminar la organización "${orgs[k].nombre}"? Esto borra TODOS sus datos (personal, novedades, multas, fotos). Esta acción no se puede deshacer.`)) return;
   await remove(ref(db, `orgs/${k}`));
   showToast('Organización eliminada.');
