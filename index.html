@@ -393,12 +393,13 @@ main{margin-left:var(--sidebar);flex:1;min-width:0;}
               <div class="card-head">➕ Agregar personal</div>
               <div class="card-body">
                 <div style="font-size:12.5px;color:var(--muted);margin-bottom:12px;">Se agrega a la organización que tienes seleccionada arriba en el menú (junto al logo). Para agregar personal de otra organización, cámbiala primero ahí.</div>
+                <button class="btn-sm btn-edit" style="margin-bottom:14px;" onclick="abrirBuscadorPersonal()">🔍 Buscar personal ya existente (todas las organizaciones)</button>
                 <div class="form-grid">
                   <div class="form-group"><label>Nombre completo</label><input type="text" id="p-nombre"></div>
                   <div class="form-group"><label>Cédula</label><input type="text" id="p-cedula"></div>
                   <div class="form-group"><label>Cargo</label><input type="text" id="p-cargo"></div>
                   <div class="form-group"><label>Teléfono</label><input type="text" id="p-telefono"></div>
-                  <div class="form-group"><label>Punto de contrato asignado</label><select id="p-area"><option value="">Seleccionar...</option></select></div>
+                  <div class="form-group"><label>Punto de contrato asignado (opcional si es Oficina San Felipe)</label><select id="p-area"><option value="">Seleccionar...</option></select></div>
                   <div class="form-group"><label>Fecha de ingreso</label><input type="date" id="p-ingreso"></div>
                 </div>
                 <button class="btn-primary" style="width:auto;padding:10px 22px;" onclick="guardarPersona()">Guardar</button>
@@ -428,7 +429,7 @@ main{margin-left:var(--sidebar);flex:1;min-width:0;}
                   <div class="form-group"><label>Apellido</label><input type="text" id="sv-apellido" placeholder="Primer apellido"></div>
                   <div class="form-group"><label>Cédula (será su contraseña)</label><input type="text" id="sv-cedula"></div>
                   <div class="form-group"><label>Rol</label><select id="sv-rol"><option value="Supervisor">Supervisor</option><option value="Jefe de grupo">Jefe de grupo</option></select></div>
-                  <div class="form-group"><label>Punto de trabajo (contrato) asignado</label><select id="sv-area"><option value="">Seleccionar...</option></select></div>
+                  <div class="form-group"><label>Punto de trabajo (contrato) asignado (opcional si es Oficina San Felipe)</label><select id="sv-area"><option value="">Seleccionar...</option></select></div>
                 </div>
                 <button class="btn-primary" style="width:auto;padding:10px 22px;" onclick="guardarSupervisor()">Guardar</button>
               </div>
@@ -588,6 +589,22 @@ main{margin-left:var(--sidebar);flex:1;min-width:0;}
       <button class="btn-cancel" onclick="cerrarModal('modal-revisar')">Cancelar</button>
       <button class="btn-sm btn-del" style="padding:10px 18px;" onclick="resolverMulta('rechazada')">Rechazar</button>
       <button class="btn-sm btn-ok" style="padding:10px 18px;" onclick="resolverMulta('aprobada')">Aprobar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: BUSCAR PERSONAL EXISTENTE -->
+<div class="modal-overlay" id="modal-buscar-personal">
+  <div class="modal-box wide">
+    <div class="modal-title">🔍 Buscar personal existente</div>
+    <div style="font-size:12.5px;color:var(--muted);margin-bottom:12px;">Busca en TODAS las organizaciones. Al elegir a alguien, se copian sus datos (no se mueve) para crear su registro aquí también.</div>
+    <div style="display:flex;gap:8px;margin-bottom:12px;">
+      <input type="text" id="bp-texto" placeholder="Nombre o cédula..." onkeydown="if(event.key==='Enter')buscarPersonalGlobal()">
+      <button class="btn-sm" style="background:var(--pri);color:white;border:none;white-space:nowrap;" onclick="buscarPersonalGlobal()">Buscar</button>
+    </div>
+    <div id="bp-resultados"><div class="empty">Escribe un nombre o cédula para buscar.</div></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="cerrarModal('modal-buscar-personal')">Cerrar</button>
     </div>
   </div>
 </div>
@@ -1688,7 +1705,29 @@ async function obtenerOCrearPuntoId(nombrePunto, updatesAcumulados, nuevasCreada
   return nuevaKey;
 }
 
+// Busca una cédula dentro de una colección ya cargada en memoria (de esta organización)
+function buscarCedulaLocal(cedula, coleccion) {
+  return Object.entries(coleccion).find(([k, v]) => (v.cedula || '').trim() === (cedula || '').trim());
+}
+
+// Busca una cédula en TODAS las organizaciones (trae el árbol completo una sola vez)
+async function buscarCedulaGlobal(cedula) {
+  const snap = await get(ref(db, 'orgs'));
+  const todos = snap.val() || {};
+  for (const [orgId, orgData] of Object.entries(todos)) {
+    if (orgId === currentOrgId) continue;
+    for (const p of Object.values(orgData.personal || {})) {
+      if ((p.cedula || '').trim() === (cedula || '').trim()) return { orgNombre: orgData.nombre, nombre: p.nombre };
+    }
+    for (const s of Object.values(orgData.supervisores || {})) {
+      if ((s.cedula || '').trim() === (cedula || '').trim()) return { orgNombre: orgData.nombre, nombre: `${s.nombre} ${s.apellido}` };
+    }
+  }
+  return null;
+}
+
 window.subirExcelPersonal = async function () {
+  const esPrincipal = !!orgs[currentOrgId]?.principal;
   const input = document.getElementById('personal-excel-file');
   const resultado = document.getElementById('personal-excel-resultado');
   if (!input.files.length) { showToast('Selecciona primero un archivo Excel.', 'err'); return; }
@@ -1698,7 +1737,10 @@ window.subirExcelPersonal = async function () {
     const filas = await leerPrimeraHojaExcel(input.files[0]);
     const updates = {};
     const nuevasAreas = {};
-    let creados = 0, errores = [];
+    // Clave = cédula + punto (así la misma persona sí puede repetirse en puntos distintos de esta organización)
+    const combosExistentes = new Set(Object.values(personal).map(p => `${(p.cedula || '').trim()}|${p.areaId || ''}`));
+    const combosEnArchivo = new Set();
+    let creados = 0, duplicados = 0, errores = [];
     for (let i = 0; i < filas.length; i++) {
       const f = filas[i];
       const nombre = String(f['Nombre completo'] || '').trim();
@@ -1710,15 +1752,19 @@ window.subirExcelPersonal = async function () {
       if (ingreso instanceof Date) ingreso = ingreso.toISOString().slice(0, 10);
       else ingreso = String(ingreso).trim();
       if (!nombre || !cedula) { errores.push(`Fila ${i + 2}: falta nombre o cédula.`); continue; }
-      const areaId = await obtenerOCrearPuntoId(puntoTxt, updates, nuevasAreas);
-      if (!areaId) { errores.push(`Fila ${i + 2} (${nombre}): falta el punto de contrato.`); continue; }
+      let areaId = null;
+      if (puntoTxt) areaId = await obtenerOCrearPuntoId(puntoTxt, updates, nuevasAreas);
+      if (!areaId && !esPrincipal) { errores.push(`Fila ${i + 2} (${nombre}): falta el punto de contrato.`); continue; }
+      const combo = `${cedula}|${areaId || ''}`;
+      if (combosExistentes.has(combo) || combosEnArchivo.has(combo)) { duplicados++; continue; }
       const key = push(ref(db, `orgs/${currentOrgId}/personal`)).key;
-      updates[`orgs/${currentOrgId}/personal/${key}`] = { nombre, cedula, cargo, telefono, areaId, areaNombre: puntos[areaId]?.nombre || puntoTxt, ingreso, estado: 'Activo' };
+      updates[`orgs/${currentOrgId}/personal/${key}`] = { nombre, cedula, cargo, telefono, areaId, areaNombre: areaId ? (puntos[areaId]?.nombre || puntoTxt) : 'Oficina San Felipe', ingreso, estado: 'Activo' };
+      combosEnArchivo.add(combo);
       creados++;
     }
     if (creados > 0) await update(ref(db), updates);
     const puntosNuevos = Object.keys(nuevasAreas).length;
-    resultado.innerHTML = `<div style="color:var(--green);font-weight:700;">✓ ${creados} persona(s) creada(s)${puntosNuevos ? ` · ${puntosNuevos} punto(s) de contrato nuevo(s) creado(s) automáticamente` : ''}.</div>` +
+    resultado.innerHTML = `<div style="color:var(--green);font-weight:700;">✓ ${creados} persona(s) creada(s)${puntosNuevos ? ` · ${puntosNuevos} punto(s) de contrato nuevo(s)` : ''}${duplicados ? ` · ${duplicados} fila(s) omitida(s) por estar ya registrada esa persona en ese mismo punto` : ''}.</div>` +
       (errores.length ? `<div style="color:var(--red);margin-top:6px;">${errores.length} fila(s) con error:<br>${errores.join('<br>')}</div>` : '');
     input.value = '';
     showToast('✓ Carga masiva completada.');
@@ -1727,6 +1773,7 @@ window.subirExcelPersonal = async function () {
 };
 
 window.subirExcelSupervisores = async function () {
+  const esPrincipal = !!orgs[currentOrgId]?.principal;
   const input = document.getElementById('sup-excel-file');
   const resultado = document.getElementById('sup-excel-resultado');
   if (!input.files.length) { showToast('Selecciona primero un archivo Excel.', 'err'); return; }
@@ -1736,7 +1783,10 @@ window.subirExcelSupervisores = async function () {
     const filas = await leerPrimeraHojaExcel(input.files[0]);
     const updates = {};
     const nuevasAreas = {};
-    let creados = 0, errores = [];
+    const cedulasSupExistentes = new Set(Object.values(supervisores).map(s => (s.cedula || '').trim()).filter(Boolean));
+    const cedulasPersonalExistentes = new Set(Object.values(personal).map(p => (p.cedula || '').trim()).filter(Boolean));
+    const cedulasEnArchivo = new Set();
+    let creados = 0, duplicados = 0, personalCreado = 0, errores = [];
     for (let i = 0; i < filas.length; i++) {
       const f = filas[i];
       const nombre = String(f['Nombre'] || '').trim();
@@ -1746,15 +1796,25 @@ window.subirExcelSupervisores = async function () {
       if (rol.toLowerCase().includes('jefe')) rol = 'Jefe de grupo'; else rol = 'Supervisor';
       const puntoTxt = String(f['Punto de contrato'] || '').trim();
       if (!nombre || !apellido || !cedula) { errores.push(`Fila ${i + 2}: falta nombre, apellido o cédula.`); continue; }
-      const areaId = await obtenerOCrearPuntoId(puntoTxt, updates, nuevasAreas);
-      if (!areaId) { errores.push(`Fila ${i + 2} (${nombre} ${apellido}): falta el punto de contrato.`); continue; }
+      if (cedulasSupExistentes.has(cedula) || cedulasEnArchivo.has(cedula)) { duplicados++; continue; }
+      let areaId = null;
+      if (puntoTxt) areaId = await obtenerOCrearPuntoId(puntoTxt, updates, nuevasAreas);
+      if (!areaId && !esPrincipal) { errores.push(`Fila ${i + 2} (${nombre} ${apellido}): falta el punto de contrato.`); continue; }
+      const areaNombre = areaId ? (puntos[areaId]?.nombre || puntoTxt) : 'Oficina San Felipe';
       const key = push(ref(db, `orgs/${currentOrgId}/supervisores`)).key;
-      updates[`orgs/${currentOrgId}/supervisores/${key}`] = { nombre, apellido, cedula, rol, areaId, areaNombre: puntos[areaId]?.nombre || puntoTxt, estado: 'Activo' };
+      updates[`orgs/${currentOrgId}/supervisores/${key}`] = { nombre, apellido, cedula, rol, areaId, areaNombre, estado: 'Activo' };
+      cedulasEnArchivo.add(cedula);
       creados++;
+      if (!cedulasPersonalExistentes.has(cedula)) {
+        const pKey = push(ref(db, `orgs/${currentOrgId}/personal`)).key;
+        updates[`orgs/${currentOrgId}/personal/${pKey}`] = { nombre: `${nombre} ${apellido}`, cedula, cargo: rol, telefono: '', areaId, areaNombre, ingreso: '', estado: 'Activo' };
+        cedulasPersonalExistentes.add(cedula);
+        personalCreado++;
+      }
     }
     if (creados > 0) await update(ref(db), updates);
     const puntosNuevos = Object.keys(nuevasAreas).length;
-    resultado.innerHTML = `<div style="color:var(--green);font-weight:700;">✓ ${creados} supervisor(es) creado(s)${puntosNuevos ? ` · ${puntosNuevos} punto(s) de contrato nuevo(s) creado(s) automáticamente` : ''}.</div>` +
+    resultado.innerHTML = `<div style="color:var(--green);font-weight:700;">✓ ${creados} supervisor(es) creado(s) (+ ${personalCreado} registro(s) de personal automáticos)${puntosNuevos ? ` · ${puntosNuevos} punto(s) de contrato nuevo(s)` : ''}${duplicados ? ` · ${duplicados} fila(s) omitida(s) por cédula repetida` : ''}.</div>` +
       (errores.length ? `<div style="color:var(--red);margin-top:6px;">${errores.length} fila(s) con error:<br>${errores.join('<br>')}</div>` : '');
     input.value = '';
     showToast('✓ Carga masiva completada.');
@@ -1764,6 +1824,7 @@ window.subirExcelSupervisores = async function () {
 
 // ── CONFIGURACIÓN: PERSONAL ──────────────────────────────────────────────────
 window.guardarPersona = async function () {
+  const esPrincipal = !!orgs[currentOrgId]?.principal;
   const nombre = document.getElementById('p-nombre').value.trim();
   const cedula = document.getElementById('p-cedula').value.trim();
   const cargo = document.getElementById('p-cargo').value.trim();
@@ -1771,8 +1832,17 @@ window.guardarPersona = async function () {
   const areaId = document.getElementById('p-area').value;
   const ingreso = document.getElementById('p-ingreso').value;
   if (!nombre || !cedula) return showToast('Ingresa al menos nombre y cédula.', 'err');
-  if (!areaId) return showToast('Selecciona el punto de contrato al que se asigna.', 'err');
-  await push(ref(db, `orgs/${currentOrgId}/personal`), { nombre, cedula, cargo, telefono, areaId, areaNombre: puntos[areaId]?.nombre || '', ingreso, estado: 'Activo' });
+  if (!areaId && !esPrincipal) return showToast('Selecciona el punto de contrato al que se asigna.', 'err');
+
+  const dupLocal = Object.entries(personal).find(([k, p]) => (p.cedula || '').trim() === cedula && (p.areaId || null) === (areaId || null));
+  if (dupLocal) return showToast(`"${dupLocal[1].nombre}" ya está registrado en este punto de contrato. (Si quieres asignarlo a otro punto de esta misma organización, sí puedes — solo cambia el punto seleccionado).`, 'err');
+
+  const enOtra = await buscarCedulaGlobal(cedula);
+  if (enOtra) {
+    if (!confirm(`Esta cédula ya está registrada en "${enOtra.orgNombre}" como "${enOtra.nombre}".\n\n¿Deseas agregarla también en esta organización?`)) return;
+  }
+
+  await push(ref(db, `orgs/${currentOrgId}/personal`), { nombre, cedula, cargo, telefono, areaId: areaId || null, areaNombre: areaId ? (puntos[areaId]?.nombre || '') : 'Oficina San Felipe', ingreso, estado: 'Activo' });
   showToast('✓ Personal agregado.');
   ['p-nombre', 'p-cedula', 'p-cargo', 'p-telefono', 'p-ingreso'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('p-area').value = '';
@@ -1790,9 +1860,59 @@ function renderPersonalList() {
       </div>
       <button class="btn-sm btn-edit" onclick="abrirModalEditarPersona('${k}')">Editar</button>
       <button class="btn-sm ${p.estado === 'Inactivo' ? 'btn-ok' : 'btn-del'}" onclick="toggleEstadoPersona('${k}')">${p.estado === 'Inactivo' ? 'Reactivar' : 'Marcar inactivo'}</button>
+      <button class="btn-sm btn-del" onclick="eliminarPersona('${k}')">Eliminar</button>
     </div>
   `).join('');
 }
+
+window.eliminarPersona = async function (k) {
+  const p = personal[k];
+  if (!confirm(`¿Eliminar por completo a ${p.nombre}? Esto no borra sus novedades/multas ya registradas, solo su ficha de personal. Si prefieres poder reactivarlo después, usa "Marcar inactivo" en vez de Eliminar.`)) return;
+  await remove(ref(db, `orgs/${currentOrgId}/personal/${k}`));
+  showToast('Personal eliminado.');
+};
+
+// ── BUSCADOR DE PERSONAL EN TODAS LAS ORGANIZACIONES ─────────────────────────
+let bpResultadosTemp = [];
+window.abrirBuscadorPersonal = function () {
+  document.getElementById('bp-texto').value = '';
+  document.getElementById('bp-resultados').innerHTML = '<div class="empty">Escribe un nombre o cédula para buscar.</div>';
+  abrirModal('modal-buscar-personal');
+};
+
+window.buscarPersonalGlobal = async function () {
+  const texto = document.getElementById('bp-texto').value.trim().toLowerCase();
+  const box = document.getElementById('bp-resultados');
+  if (!texto) { box.innerHTML = '<div class="empty">Escribe un nombre o cédula para buscar.</div>'; return; }
+  box.innerHTML = '<div class="empty">Buscando...</div>';
+  const snap = await get(ref(db, 'orgs'));
+  const todos = snap.val() || {};
+  const resultados = [];
+  Object.entries(todos).forEach(([orgId, orgData]) => {
+    Object.values(orgData.personal || {}).forEach(p => {
+      if ((p.nombre || '').toLowerCase().includes(texto) || (p.cedula || '').includes(texto)) {
+        resultados.push({ orgNombre: orgData.nombre, mismaOrg: orgId === currentOrgId, persona: p });
+      }
+    });
+  });
+  bpResultadosTemp = resultados;
+  if (!resultados.length) { box.innerHTML = '<div class="empty">No se encontró a nadie con ese nombre o cédula.</div>'; return; }
+  box.innerHTML = resultados.slice(0, 25).map((r, idx) => `
+    <div class="item-row" style="cursor:pointer;" onclick="usarPersonaEncontrada(${idx})">
+      <div class="item-main"><div class="item-title">${r.persona.nombre}</div><div class="item-sub">Cédula: ${r.persona.cedula} · ${r.persona.cargo || ''} · ${r.orgNombre}${r.mismaOrg ? ' (esta organización)' : ''} · ${r.persona.estado || 'Activo'}</div></div>
+    </div>
+  `).join('');
+};
+
+window.usarPersonaEncontrada = function (idx) {
+  const p = bpResultadosTemp[idx].persona;
+  document.getElementById('p-nombre').value = p.nombre || '';
+  document.getElementById('p-cedula').value = p.cedula || '';
+  document.getElementById('p-cargo').value = p.cargo || '';
+  document.getElementById('p-telefono').value = p.telefono || '';
+  cerrarModal('modal-buscar-personal');
+  showToast('Datos copiados — elige el punto de contrato de esta organización y guarda.');
+};
 
 window.toggleEstadoPersona = async function (k) {
   const nuevo = personal[k].estado === 'Inactivo' ? 'Activo' : 'Inactivo';
@@ -1816,6 +1936,7 @@ window.abrirModalEditarPersona = function (k) {
 };
 
 window.guardarEdicionPersona = async function () {
+  const esPrincipal = !!orgs[currentOrgId]?.principal;
   const nombre = document.getElementById('ep-nombre').value.trim();
   const cedula = document.getElementById('ep-cedula').value.trim();
   const cargo = document.getElementById('ep-cargo').value.trim();
@@ -1824,8 +1945,10 @@ window.guardarEdicionPersona = async function () {
   const ingreso = document.getElementById('ep-ingreso').value;
   const err = document.getElementById('ep-err');
   if (!nombre || !cedula) { err.textContent = 'Completa al menos nombre y cédula.'; return; }
-  if (!areaId) { err.textContent = 'Selecciona el punto de contrato al que se asigna.'; return; }
-  await update(ref(db, `orgs/${currentOrgId}/personal/${editandoPersonaId}`), { nombre, cedula, cargo, telefono, areaId, areaNombre: puntos[areaId]?.nombre || '', ingreso });
+  if (!areaId && !esPrincipal) { err.textContent = 'Selecciona el punto de contrato al que se asigna.'; return; }
+  const dup = Object.entries(personal).find(([k, p]) => k !== editandoPersonaId && (p.cedula || '').trim() === cedula && (p.areaId || null) === (areaId || null));
+  if (dup) { err.textContent = `"${dup[1].nombre}" ya está registrado en ese punto de contrato.`; return; }
+  await update(ref(db, `orgs/${currentOrgId}/personal/${editandoPersonaId}`), { nombre, cedula, cargo, telefono, areaId: areaId || null, areaNombre: areaId ? (puntos[areaId]?.nombre || '') : 'Oficina San Felipe', ingreso });
   showToast('✓ Personal actualizado.');
   cerrarModal('modal-editar-persona');
 };
@@ -1843,15 +1966,37 @@ window.verDetallePersona = function (k) {
 
 // ── CONFIGURACIÓN: SUPERVISORES ──────────────────────────────────────────────
 window.guardarSupervisor = async function () {
+  const esPrincipal = !!orgs[currentOrgId]?.principal;
   const nombre = document.getElementById('sv-nombre').value.trim();
   const apellido = document.getElementById('sv-apellido').value.trim();
   const cedula = document.getElementById('sv-cedula').value.trim();
   const rol = document.getElementById('sv-rol').value;
   const areaId = document.getElementById('sv-area').value;
   if (!nombre || !apellido || !cedula) return showToast('Completa nombre, apellido y cédula.', 'err');
-  if (!areaId) return showToast('Selecciona el punto de trabajo (contrato) al que se asigna.', 'err');
-  await push(ref(db, `orgs/${currentOrgId}/supervisores`), { nombre, apellido, cedula, rol, areaId, areaNombre: puntos[areaId]?.nombre || '', estado: 'Activo' });
-  showToast('✓ Supervisor agregado.');
+  if (!areaId && !esPrincipal) return showToast('Selecciona el punto de trabajo (contrato) al que se asigna.', 'err');
+
+  const dupLocal = buscarCedulaLocal(cedula, supervisores);
+  if (dupLocal) return showToast(`Ya existe un supervisor con esa cédula en esta organización (${dupLocal[1].nombre} ${dupLocal[1].apellido}).`, 'err');
+
+  const enOtra = await buscarCedulaGlobal(cedula);
+  if (enOtra) {
+    if (!confirm(`Esta cédula ya está registrada en "${enOtra.orgNombre}" como "${enOtra.nombre}".\n\n¿Deseas agregarla también en esta organización?`)) return;
+  }
+
+  const areaNombre = areaId ? (puntos[areaId]?.nombre || '') : 'Oficina San Felipe';
+  const updates = {};
+  const svKey = push(ref(db, `orgs/${currentOrgId}/supervisores`)).key;
+  updates[`orgs/${currentOrgId}/supervisores/${svKey}`] = { nombre, apellido, cedula, rol, areaId: areaId || null, areaNombre, estado: 'Activo' };
+
+  // Crea también su ficha de Personal, para poder recibir novedades/multas si hace falta (si no existe ya con esa cédula)
+  const yaComoPersonal = buscarCedulaLocal(cedula, personal);
+  if (!yaComoPersonal) {
+    const pKey = push(ref(db, `orgs/${currentOrgId}/personal`)).key;
+    updates[`orgs/${currentOrgId}/personal/${pKey}`] = { nombre: `${nombre} ${apellido}`, cedula, cargo: rol, telefono: '', areaId: areaId || null, areaNombre, ingreso: '', estado: 'Activo' };
+  }
+
+  await update(ref(db), updates);
+  showToast('✓ Supervisor agregado (con su ficha de personal correspondiente).');
   ['sv-nombre', 'sv-apellido', 'sv-cedula'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('sv-area').value = '';
 };
@@ -1960,9 +2105,14 @@ function renderPuntosAdminList() {
 }
 
 window.delPuntoConfig = async function (k) {
-  if (!confirm('¿Eliminar este punto de contrato? Si hay supervisores o personal asignados a él, quedarán con un punto que ya no existe — mejor renómbralo en vez de eliminarlo si sigue en uso.')) return;
-  await remove(ref(db, `orgs/${currentOrgId}/puntos/${k}`));
-  showToast('Punto de contrato eliminado.');
+  if (!confirm('¿Eliminar este punto de contrato? El personal y los supervisores asignados a él pasarán automáticamente a estado Inactivo (no se borran, solo se desactivan).')) return;
+  const updates = {};
+  updates[`orgs/${currentOrgId}/puntos/${k}`] = null;
+  let afectados = 0;
+  Object.entries(personal).forEach(([pk, p]) => { if (p.areaId === k && p.estado !== 'Inactivo') { updates[`orgs/${currentOrgId}/personal/${pk}/estado`] = 'Inactivo'; afectados++; } });
+  Object.entries(supervisores).forEach(([sk, s]) => { if (s.areaId === k && s.estado !== 'Inactivo') { updates[`orgs/${currentOrgId}/supervisores/${sk}/estado`] = 'Inactivo'; afectados++; } });
+  await update(ref(db), updates);
+  showToast(`Punto de contrato eliminado.${afectados ? ` ${afectados} persona(s) pasaron a Inactivo.` : ''}`);
 };
 
 window.renombrarPuntoConfig = async function (k) {
